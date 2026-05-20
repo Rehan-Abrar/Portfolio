@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-// ---------- Base design resolution ----------
-const BASE_W = 512;
-const BASE_H = 384;
+// ---------- Canvas dimensions ----------
+// Base render resolution; canvas scales to fill the arcade screen
+const W = 512;
+const H = 384;
 
 // ---------- Game constants ----------
-const BIRD_X_BASE = 75;
-const BIRD_SIZE_BASE = 6; // 8x8 square (half-size)
-const GRAVITY_BASE = 0.32;
-const FLAP_BASE = -6.2;
-const PIPE_W_BASE = 36;
-const PIPE_SPEED_BASE = 2.0;
+const BIRD_X = 75;
+const BIRD_SIZE = 4; // 8x8 square (half-size)
+const GRAVITY = 0.32;
+const FLAP = -6.2;
+const PIPE_W = 36;
+const PIPE_SPEED = 2.0;
 const PIPE_INTERVAL = 115; // frames between pipes
 
 const MONO = "'Courier New', 'Lucida Console', monospace";
 
 // Difficulty: gap shrinks smoothly, floors at ~80px
-function getGap(score, scale) {
-  return (112 - Math.min(score * 2, 32)) * scale;
+function getGap(score) {
+  return 112 - Math.min(score * 2, 32);
 }
 
 // ---------- Web Audio (zero deps, generated tones) ----------
@@ -72,71 +73,51 @@ function saveBest(score) {
 }
 
 // ---------- Grid background (drawn once to offscreen canvas) ----------
-function makeGridCanvas(w, h) {
+function makeGridCanvas() {
   const gc = document.createElement("canvas");
-  gc.width = w;
-  gc.height = h;
+  gc.width = W;
+  gc.height = H;
   const gx = gc.getContext("2d");
   gx.fillStyle = "#0d0d0d";
-  gx.fillRect(0, 0, w, h);
+  gx.fillRect(0, 0, W, H);
   gx.strokeStyle = "rgba(255,255,255,0.04)";
   gx.lineWidth = 1;
   const step = 24;
-  for (let x = 0; x <= w; x += step) {
-    gx.beginPath(); gx.moveTo(x, 0); gx.lineTo(x, h); gx.stroke();
+  for (let x = 0; x <= W; x += step) {
+    gx.beginPath(); gx.moveTo(x, 0); gx.lineTo(x, H); gx.stroke();
   }
-  for (let y = 0; y <= h; y += step) {
-    gx.beginPath(); gx.moveTo(0, y); gx.lineTo(w, y); gx.stroke();
+  for (let y = 0; y <= H; y += step) {
+    gx.beginPath(); gx.moveTo(0, y); gx.lineTo(W, y); gx.stroke();
   }
   return gc;
 }
 
 // ---------- Component ----------
 export default function GamesPage() {
-  const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
   const rafRef = useRef(null);
   const gridRef = useRef(null);
-  const sizeRef = useRef({ w: 0, h: 0, scale: 1 });
   const soundRef = useRef(false); // muted by default
   const [phase, setPhase] = useState("idle"); // idle | playing | dead
   const [soundOn, setSoundOn] = useState(false);
-  const [surfaceSize, setSurfaceSize] = useState({ w: 0, h: 0 });
 
   // Keep soundRef in sync without re-creating game loop
   useEffect(() => { soundRef.current = soundOn; }, [soundOn]);
 
-  // Track surface size for 1:1 pixel mapping
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
-    const update = () => {
-      const w = Math.max(1, Math.floor(el.clientWidth));
-      const h = Math.max(1, Math.floor(el.clientHeight));
-      const scale = Math.min(w / BASE_W, h / BASE_H);
-      sizeRef.current = { w, h, scale };
-      setSurfaceSize({ w, h });
-      gridRef.current = makeGridCanvas(w, h);
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Build grid once
+  useEffect(() => { gridRef.current = makeGridCanvas(); }, []);
 
   // ---------- init game state ----------
   const resetState = useCallback(() => {
-    const { h, scale } = sizeRef.current;
     stateRef.current = {
-      bird: { y: h / 2, vy: 0, flapFlash: 0 },
+      bird: { y: H / 2, vy: 0, flapFlash: 0 },
       waiting: true,
       pipes: [],
       frameCount: 0,
       score: 0,
       bestScore: loadBest(),
       scoreFlash: 0,
-      scale,
     };
   }, []);
 
@@ -197,25 +178,11 @@ export default function GamesPage() {
     if (phase !== "playing") return;
 
     const canvas = canvasRef.current;
-    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
     const ctx = canvas.getContext("2d");
 
     const loop = () => {
       const s = stateRef.current;
       if (!s) return;
-
-      const { w, h, scale } = sizeRef.current;
-      if (!w || !h) {
-        rafRef.current = requestAnimationFrame(loop);
-        return;
-      }
-
-      const BIRD_X = BIRD_X_BASE * scale;
-      const BIRD_SIZE = BIRD_SIZE_BASE * scale;
-      const GRAVITY = GRAVITY_BASE * scale;
-      const FLAP = FLAP_BASE * scale;
-      const PIPE_W = PIPE_W_BASE * scale;
-      const PIPE_SPEED = PIPE_SPEED_BASE * scale;
 
       if (!s.waiting) {
         s.frameCount++;
@@ -227,9 +194,9 @@ export default function GamesPage() {
 
         // Spawn pipes
         if (s.frameCount % PIPE_INTERVAL === 0) {
-          const gap = getGap(s.score, scale);
-          const gapY = 44 * scale + Math.random() * (h - gap - 88 * scale);
-          s.pipes.push({ x: w + 4 * scale, gapY, gap, passed: false });
+          const gap = getGap(s.score);
+          const gapY = 44 + Math.random() * (H - gap - 88);
+          s.pipes.push({ x: W + 4, gapY, gap, passed: false });
         }
 
         // Move pipes + score
@@ -256,7 +223,7 @@ export default function GamesPage() {
         const by1 = s.bird.y - BIRD_SIZE, by2 = s.bird.y + BIRD_SIZE;
         const dead =
           by1 < 0 ||
-          by2 > h - 18 * scale ||
+          by2 > H - 18 ||
           s.pipes.some(
             (p) =>
               bx2 > p.x &&
@@ -285,11 +252,11 @@ export default function GamesPage() {
       ctx.strokeStyle = "#2a2a2a";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, h - 18 * scale);
-      ctx.lineTo(w, h - 18 * scale);
+      ctx.moveTo(0, H - 18);
+      ctx.lineTo(W, H - 18);
       ctx.stroke();
       ctx.fillStyle = "#111";
-      ctx.fillRect(0, h - 17 * scale, w, 17 * scale);
+      ctx.fillRect(0, H - 17, W, 17);
 
       // Pipes — dark rect + lighter outline
       for (const p of s.pipes) {
@@ -308,20 +275,15 @@ export default function GamesPage() {
         // bottom
         const botY = p.gapY + p.gap;
         ctx.fillStyle = "#1c1c1c";
-        ctx.fillRect(p.x, botY + 9 * scale, PIPE_W, h - botY - 9 * scale - 18 * scale);
+        ctx.fillRect(p.x, botY + 9, PIPE_W, H - botY - 9 - 18);
         ctx.strokeStyle = "#3a3a3a";
         ctx.lineWidth = 1;
-        ctx.strokeRect(
-          p.x + 0.5,
-          botY + 9.5 * scale,
-          PIPE_W - 1,
-          h - botY - 9 * scale - 18 * scale - 1,
-        );
+        ctx.strokeRect(p.x + 0.5, botY + 9.5, PIPE_W - 1, H - botY - 9 - 18 - 1);
         // bottom cap
         ctx.fillStyle = "#252525";
-        ctx.fillRect(p.x - 3 * scale, botY, PIPE_W + 6 * scale, 9 * scale);
+        ctx.fillRect(p.x - 3, botY, PIPE_W + 6, 9);
         ctx.strokeStyle = "#444";
-        ctx.strokeRect(p.x - 2.5 * scale, botY + 0.5 * scale, PIPE_W + 5 * scale, 8 * scale);
+        ctx.strokeRect(p.x - 2.5, botY + 0.5, PIPE_W + 5, 8);
       }
 
       // Bird — white square with tilt, green tint on flap
@@ -334,16 +296,16 @@ export default function GamesPage() {
       ctx.fillRect(-BIRD_SIZE, -BIRD_SIZE, BIRD_SIZE * 2, BIRD_SIZE * 2);
       // inner dark dot (eye feel)
       ctx.fillStyle = "#0d0d0d";
-      ctx.fillRect(BIRD_SIZE - 5 * scale, -BIRD_SIZE + 2 * scale, 3 * scale, 3 * scale);
+      ctx.fillRect(BIRD_SIZE - 5, -BIRD_SIZE + 2, 3, 3);
       ctx.restore();
 
       // Score HUD
       const scoreColor = s.scoreFlash > 0 ? "#4ade80" : "#e5e5e5";
-      drawText(ctx, String(s.score), w / 2, 38 * scale, 26 * scale, scoreColor);
-      drawText(ctx, `BEST ${s.bestScore}`, w / 2, 56 * scale, 10 * scale, "#555");
+      drawText(ctx, String(s.score), W / 2, 38, 26, scoreColor);
+      drawText(ctx, `BEST ${s.bestScore}`, W / 2, 56, 10, "#555");
 
       if (s.waiting) {
-        drawText(ctx, "TAP TO FLAP", w / 2, h / 2 + 74 * scale, 11 * scale, "#666");
+        drawText(ctx, "TAP TO FLAP", W / 2, H / 2 + 74, 11, "#666");
       }
 
       // Scanlines
@@ -360,10 +322,7 @@ export default function GamesPage() {
   useEffect(() => {
     if (phase === "playing") return;
     const canvas = canvasRef.current;
-    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
     const ctx = canvas.getContext("2d");
-    const { w, h, scale } = sizeRef.current;
-    if (!w || !h) return;
 
     drawGrid(ctx);
 
@@ -371,23 +330,23 @@ export default function GamesPage() {
     ctx.strokeStyle = "rgba(255,255,255,0.04)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    ctx.lineTo(w, h / 2);
+    ctx.moveTo(0, H / 2);
+    ctx.lineTo(W, H / 2);
     ctx.stroke();
 
     if (phase === "idle") {
       // ASCII bird deco
-      drawText(ctx, "[ FLAPPY.EXE ]", w / 2, 90 * scale, 15 * scale, "#e5e5e5");
-      drawText(ctx, "ARCADE", w / 2, 118 * scale, 28 * scale, "#e5e5e5");
+      drawText(ctx, "[ FLAPPY.EXE ]", W / 2, 90, 15, "#e5e5e5");
+      drawText(ctx, "ARCADE", W / 2, 118, 28, "#e5e5e5");
 
       // Blink hint (drawn statically — blink handled by CSS on overlay div)
-      drawText(ctx, "INSERT COIN", w / 2, 168 * scale, 13 * scale, "#888");
-      drawText(ctx, "SPACE / TAP TO START", w / 2, 188 * scale, 11 * scale, "#555");
+      drawText(ctx, "INSERT COIN", W / 2, 168, 13, "#888");
+      drawText(ctx, "SPACE / TAP TO START", W / 2, 188, 11, "#555");
 
       const best = loadBest();
-      if (best > 0) drawText(ctx, `HI-SCORE  ${best}`, w / 2, 232 * scale, 11 * scale, "#777");
+      if (best > 0) drawText(ctx, `HI-SCORE  ${best}`, W / 2, 232, 11, "#777");
 
-      drawText(ctx, "v1.0  REHAN.DEV", w / 2, h - 28 * scale, 9 * scale, "#2a2a2a");
+      drawText(ctx, "v1.0  REHAN.DEV", W / 2, H - 28, 9, "#2a2a2a");
     } else {
       // dead
       const s = stateRef.current;
@@ -395,22 +354,22 @@ export default function GamesPage() {
       const best = s?.bestScore ?? loadBest();
       const isNewBest = last > 0 && last >= best;
 
-      drawText(ctx, "GAME OVER", w / 2, 88 * scale, 20 * scale, "#e5e5e5");
+      drawText(ctx, "GAME OVER", W / 2, 88, 20, "#e5e5e5");
 
       // Score box
       ctx.strokeStyle = "#2a2a2a";
       ctx.lineWidth = 1;
-      ctx.strokeRect(w / 2 - 80 * scale, 100 * scale, 160 * scale, 68 * scale);
+      ctx.strokeRect(W / 2 - 80, 100, 160, 68);
 
-      drawText(ctx, "SCORE", w / 2 - 30 * scale, 122 * scale, 10 * scale, "#555", "right");
-      drawText(ctx, String(last), w / 2 - 24 * scale, 122 * scale, 13 * scale, "#e5e5e5", "left");
-      drawText(ctx, "BEST", w / 2 - 30 * scale, 142 * scale, 10 * scale, "#555", "right");
-      drawText(ctx, String(best), w / 2 - 24 * scale, 142 * scale, 13 * scale, "#e5e5e5", "left");
+      drawText(ctx, "SCORE", W / 2 - 30, 122, 10, "#555", "right");
+      drawText(ctx, String(last), W / 2 - 24, 122, 13, "#e5e5e5", "left");
+      drawText(ctx, "BEST", W / 2 - 30, 142, 10, "#555", "right");
+      drawText(ctx, String(best), W / 2 - 24, 142, 13, "#e5e5e5", "left");
 
-      if (isNewBest) drawText(ctx, "◀ NEW RECORD", w / 2 + 28 * scale, 142 * scale, 9 * scale, "#777", "left");
+      if (isNewBest) drawText(ctx, "◀ NEW RECORD", W / 2 + 28, 142, 9, "#777", "left");
 
-      drawText(ctx, "RETRY?  SPACE / TAP", w / 2, 206 * scale, 11 * scale, "#666");
-      drawText(ctx, "[ REHAN.DEV ]", w / 2, 242 * scale, 9 * scale, "#2a2a2a");
+      drawText(ctx, "RETRY?  SPACE / TAP", W / 2, 206, 11, "#666");
+      drawText(ctx, "[ REHAN.DEV ]", W / 2, 242, 9, "#2a2a2a");
     }
 
     drawScanlines(ctx);
@@ -440,7 +399,6 @@ export default function GamesPage() {
 
   return (
     <div
-      ref={containerRef}
       style={{
         position: "relative",
         width: "100%",
@@ -461,13 +419,13 @@ export default function GamesPage() {
     >
       <canvas
         ref={canvasRef}
-        width={surfaceSize.w}
-        height={surfaceSize.h}
+        width={W}
+        height={H}
         style={{
           position: "absolute",
           inset: 0,
-          width: `${surfaceSize.w}px`,
-          height: `${surfaceSize.h}px`,
+          width: "100%",
+          height: "100%",
           display: "block",
           imageRendering: "pixelated",
           border: "1px solid #1e1e1e",
