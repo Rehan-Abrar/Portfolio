@@ -7,7 +7,7 @@ const H = 384;
 
 // ---------- Game constants ----------
 const BIRD_X = 75;
-const BIRD_SIZE = 4; // 8x8 square (half-size)
+const BIRD_SIZE = 6; // 8x8 square (half-size)
 const GRAVITY = 0.32;
 const FLAP = -6.2;
 const PIPE_W = 36;
