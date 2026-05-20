@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import SceneWrapper from "./components/3d/SceneWrapper";
 import Loading from "./components/pages/Loading.jsx";
 import MainAudioControl from "./components/ui/MainAudioControl.jsx";
+import { tracks } from "./utils/trackData.js";
 import {
   BsFillVolumeMuteFill,
   BsFillVolumeUpFill,
@@ -70,7 +71,7 @@ export default function App() {
             <div className="h-full flex gap-2">
               <audio
                 ref={audioRef}
-                src={"music/hamon.wav"}
+                src={tracks[0]?.src}
                 className="hidden"
                 autoPlay
               />
