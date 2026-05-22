@@ -112,7 +112,6 @@ export default function GamesPage({ focused = false }) {
   const resetState = useCallback(() => {
     stateRef.current = {
       bird: { y: H / 2, vy: 0, flapFlash: 0 },
-        pointerEvents: focused ? "auto" : "none",
       waiting: true,
       pipes: [],
       frameCount: 0,
@@ -409,6 +408,7 @@ export default function GamesPage({ focused = false }) {
         userSelect: "none",
         WebkitUserSelect: "none",
         fontFamily: MONO,
+        pointerEvents: focused ? "auto" : "none",
       }}
       onPointerDown={onPointerDown}
       onPointerMove={stopProp}
