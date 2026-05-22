@@ -93,7 +93,7 @@ function makeGridCanvas() {
 }
 
 // ---------- Component ----------
-export default function GamesPage() {
+export default function GamesPage({ focused = false }) {
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
   const rafRef = useRef(null);
@@ -112,6 +112,7 @@ export default function GamesPage() {
   const resetState = useCallback(() => {
     stateRef.current = {
       bird: { y: H / 2, vy: 0, flapFlash: 0 },
+        pointerEvents: focused ? "auto" : "none",
       waiting: true,
       pipes: [],
       frameCount: 0,

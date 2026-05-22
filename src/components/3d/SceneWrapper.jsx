@@ -120,7 +120,7 @@ export default function SceneWrapper({
 
       {arcadeScreen && (
         <AttachHtmlToMesh mesh={arcadeScreen}>
-          <GamesPage />
+          <GamesPage focused={target === "Games_Red_Text_Target"} />
         </AttachHtmlToMesh>
       )}
 
