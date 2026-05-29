@@ -4,7 +4,7 @@
 
 Users can explore the 3D space through smooth camera transitions and interact with each section via real HTML content rendered on 3D object surfaces. The experience blends traditional web design with immersive visuals and includes **multilanguage support** and **music controls**.
 
-Check out the [Live Page](https://Rehan-Abrar.github.io/3d-portfolio-website/)
+Check out the [Live Page](rehan-portfolio1.vercel.app)
 
 ## Features
 
